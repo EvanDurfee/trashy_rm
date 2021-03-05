@@ -42,6 +42,9 @@ class ExecutionConfig:
     # Dry run, do not modify the file system
     dry_run = False
 
+def run(app_config, exec_config):
+    """Run trashy rm with the given configurations"""
+    return 0
 
 def main(argv=None):
     """trashy_rm run harness"""
