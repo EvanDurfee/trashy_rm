@@ -1,11 +1,15 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 """tashy_rm, the safe-ish rm wrapper
 
 """
 
+import configparser
+import os
 import sys
 from enum import Enum
 
+DEFAULT_CUTOFF = 3
 
 class InteractiveMode(Enum):
     NEVER = 1
@@ -15,10 +19,13 @@ class InteractiveMode(Enum):
 
 class AppConfig:
     """Defines the configuration of trashy_rm itself"""
-    # number of files / dirs to remove before a prompt is given
-    prompt_cutoff = 3
-    # directories in which to default to trash instead of rm
-    trashy_dirs = []
+    def __init__(self, cutoff=DEFAULT_CUTOFF, trashy_dirs=None):
+        # number of files / dirs to remove before a prompt is given
+        if trashy_dirs is None:
+            trashy_dirs = list()
+        self.cutoff = cutoff
+        # directories in which to default to trash instead of rm
+        self.trashy_dirs = trashy_dirs
 
 
 class ExecutionConfig:
@@ -42,9 +49,23 @@ class ExecutionConfig:
     # Dry run, do not modify the file system
     dry_run = False
 
+
+def load_app_config(file_names):
+    parser = configparser.ConfigParser()
+    for file_name in file_names:
+        parser.read(file_name)
+    cutoff = parser.getint('prompt', 'cutoff', fallback=3)
+    if parser.has_section('trash_path'):
+        trashy_dirs = [os.path.expanduser(os.path.expandvars(path)) for _, path in parser.items('trash_path')]
+    else:
+        trashy_dirs = []
+    return AppConfig(cutoff, trashy_dirs)
+
+
 def run(app_config, exec_config):
     """Run trashy rm with the given configurations"""
     return 0
+
 
 def main(argv=None):
     """trashy_rm run harness"""
