@@ -54,7 +54,7 @@ def load_app_config(file_names):
     parser = configparser.ConfigParser()
     for file_name in file_names:
         parser.read(file_name)
-    cutoff = parser.getint('prompt', 'cutoff', fallback=3)
+    cutoff = parser.getint('prompt', 'cutoff', fallback=DEFAULT_CUTOFF)
     if parser.has_section('trash_path'):
         trashy_dirs = [os.path.expanduser(os.path.expandvars(path)) for _, path in parser.items('trash_path')]
     else:
