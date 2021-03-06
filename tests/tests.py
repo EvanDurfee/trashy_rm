@@ -1,3 +1,4 @@
+import io
 import os
 import tempfile
 import textwrap
@@ -83,9 +84,13 @@ class TestOptsParser(unittest.TestCase):
 
 class TestHarness(unittest.TestCase):
     def test_harness(self):
+        sys_info = trashy_rm.get_system_info()
         app_config = trashy_rm.AppConfig()
         exec_config = trashy_rm.ExecConfig()
-        self.assertEqual(0, trashy_rm.run(app_config, exec_config))
+        proc_in = io.StringIO()
+        proc_out = io.StringIO()
+        proc_err = io.StringIO()
+        self.assertEqual(0, trashy_rm.run(sys_info, app_config, exec_config, proc_in, proc_out, proc_err))
 
     @mock.patch.dict(os.environ, {'HOME': '/tmp/trashy/my$PWD',
                                   'MY_DIR': '/tmp/trashy/test',

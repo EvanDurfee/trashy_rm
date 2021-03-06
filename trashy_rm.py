@@ -5,11 +5,11 @@
 """
 
 import configparser
-import io
-import itertools
 import os
+import platform
 import sys
 from enum import Enum
+from subprocess import call
 
 from typing import List
 
@@ -75,14 +75,15 @@ class ExecConfig:
 
 def load_app_config(file_names: List[str]) -> AppConfig:
     parser = configparser.ConfigParser()
+    conf = AppConfig()
     for file_name in file_names:
         parser.read(file_name)
-    cutoff = parser.getint('prompt', 'cutoff', fallback=DEFAULT_CUTOFF)
+    cutoff = parser.getint('prompt', 'cutoff', fallback=None)
+    if cutoff is not None:
+        conf.cutoff = cutoff
     if parser.has_section('trash_path'):
-        trashy_dirs = [os.path.expanduser(os.path.expandvars(path)) for _, path in parser.items('trash_path')]
-    else:
-        trashy_dirs = []
-    return AppConfig(cutoff, trashy_dirs)
+        conf.trashy_dirs += [os.path.expanduser(os.path.expandvars(path)) for _, path in parser.items('trash_path')]
+    return conf
 
 
 class OptParseError(Exception):
@@ -128,11 +129,11 @@ def parse_opts(opts: List[str]) -> ExecConfig:
                     elif o == 'h' or o == '-help':
                         # Stop processing if we see a help flag
                         conf.help = True
-                        raise StopIteration
+                        raise StopIteration()
                     elif o == '-get-trash':
                         # Stop processing if we see a get-trash flag
                         conf.get_trash = True
-                        raise StopIteration
+                        raise StopIteration()
                     elif o == 'c' or o == '-recycle':
                         conf.trash_mode = TrashMode.ALWAYS
                     elif o == '-direct':
@@ -149,15 +150,70 @@ def parse_opts(opts: List[str]) -> ExecConfig:
     return conf
 
 
-def run(app_config: AppConfig, exec_config: ExecConfig) -> int:
+class UnsupportedSystemError(Exception):
+    """Exception indicating the system is not supported by trashy rm"""
+
+
+class LinuxSystemInfo:
+    def __int__(self):
+        self.uid = os.getuid()
+        self.configs = LinuxSystemInfo.get_configs()
+        self.user_trash = LinuxSystemInfo.get_user_trash()
+        self.shredder = LinuxSystemInfo.get_shredder()
+
+    @classmethod
+    def get_user_trash(cls) -> str:
+        xdg_data_home = os.path.expanduser(os.path.expandvars(os.getenv('XDG_DATA_HOME', '~/.local/share')))
+        user_trash = os.path.join(xdg_data_home, 'Trash')
+        return user_trash
+
+    @classmethod
+    def get_configs(cls) -> List[str]:
+        xdg_config_home = os.path.expanduser(os.path.expandvars(os.getenv('XDG_CONFIG_HOME', '~/.config')))
+        user_config = os.path.join(xdg_config_home, 'trashy_rm', 'config')
+        return [user_config] if os.path.isfile(user_config) else []
+
+    @classmethod
+    def get_shredder(cls) -> str:
+        # File shredding
+        if call('hash gshred 2>/dev/null', shell=True) == 0:
+            shredder = 'gshred'
+        elif call('hash shred 2>/dev/null', shell=True) == 0:
+            shredder = 'shred'
+        else:
+            shredder = None
+        return shredder
+
+    def get_trash_dir(self, target):
+        """Get the best matching trash directory for the target file / dir"""
+        raise NotImplementedError()
+
+
+def get_system_info():
+    system_type = platform.system()
+    if system_type == 'Linux':
+        return LinuxSystemInfo()
+    elif system_type == 'Darwin':
+        # TODO: get support from someone with an Apple Macintosh
+        raise UnsupportedSystemError("Support for Darwin systems not implemented")
+    else:
+        # TODO: BSD should be usable as well
+        raise UnsupportedSystemError("Unsupported system: " + system_type)
+
+
+def run(sys_info, conf: AppConfig, opts: ExecConfig,
+        in_stream=sys.stdin, out_stream=sys.stdout, err_stream=sys.stderr) -> int:
     """Run trashy rm with the given configurations"""
     return 0
 
 
 def main() -> int:
     """trashy_rm run harness"""
-    # TODO: pass IO and config
-    return run(None, None)
+    # TODO: handle and test exceptions
+    sys_info = get_system_info()
+    opts = parse_opts(sys.argv)
+    conf = load_app_config(sys_info.configs)
+    return run(sys_info, conf, opts)
 
 
 if __name__ == '__main__':
