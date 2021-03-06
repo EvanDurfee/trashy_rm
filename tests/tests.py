@@ -5,11 +5,86 @@ import unittest
 import trashy_rm
 from unittest import mock
 
+class TestOptsParser(unittest.TestCase):
+    def assertOptsEqual(self, expected: trashy_rm.ExecConfig, actual: trashy_rm.ExecConfig):
+        self.assertEqual(expected.force, actual.force)
+        self.assertEqual(expected.handle_dirs, actual.handle_dirs)
+        self.assertEqual(expected.recursive, actual.recursive)
+        self.assertEqual(expected.interactive_mode, actual.interactive_mode)
+        self.assertEqual(expected.verbose, actual.verbose)
+        self.assertEqual(expected.help, actual.help)
+        self.assertEqual(expected.get_trash, actual.get_trash)
+        self.assertEqual(expected.trash_mode, actual.trash_mode)
+        self.assertEqual(expected.shred, actual.shred)
+        self.assertCountEqual(expected.targets, actual.targets)
+
+    def test_opts1(self):
+        expected = trashy_rm.ExecConfig()
+        expected.recursive = True
+        expected.trash_mode = trashy_rm.TrashMode.ALWAYS
+        expected.interactive_mode = trashy_rm.InteractiveMode.ALWAYS
+        expected.verbose = True
+        expected.handle_dirs = True
+        expected.read_targets = True
+        expected.targets = ['target1', '/dir/there/target2', '-target3', '--help']
+        opts = [
+            '--recursive',
+            '--recycle',
+            '--interactive=always',
+            'target1',
+            '/dir/there/target2',
+            '-vd',
+            '-',
+            '--',
+            '-target3',
+            '--help'
+        ]
+        actual = trashy_rm.parse_opts(opts)
+        self.assertOptsEqual(expected, actual)
+
+    def test_opts2(self):
+        expected = trashy_rm.ExecConfig()
+        expected.interactive_mode = trashy_rm.InteractiveMode.NEVER
+        expected.force = True
+        expected.help = True
+        opts = [
+            '--interactive=never',
+            '--force',
+            '-fh-'
+        ]
+        actual = trashy_rm.parse_opts(opts)
+        self.assertOptsEqual(expected, actual)
+
+    def test_bad_opts1(self):
+        # Unrecognized short option '-'
+        opts = [
+            '-r-d'
+        ]
+        self.assertRaises(trashy_rm.OptParseError, lambda: trashy_rm.parse_opts(opts))
+
+    def test_bad_opts2(self):
+        # Unsupported interactive mode
+        opts = [
+            '--dry-run,'
+            '--interactive=squirrels'
+        ]
+        self.assertRaises(trashy_rm.OptParseError, lambda: trashy_rm.parse_opts(opts))
+        self.assertRaises(trashy_rm.OptParseError, lambda: trashy_rm.parse_opts(opts[::-1]))
+
+    def test_bad_opts3(self):
+        # generic unsupported arguments
+        opts = [
+            '--what',
+            '-w'
+        ]
+        self.assertRaises(trashy_rm.OptParseError, lambda: trashy_rm.parse_opts(opts))
+        self.assertRaises(trashy_rm.OptParseError, lambda: trashy_rm.parse_opts(opts[::-1]))
+
 
 class TestHarness(unittest.TestCase):
     def test_harness(self):
         app_config = trashy_rm.AppConfig()
-        exec_config = trashy_rm.ExecutionConfig()
+        exec_config = trashy_rm.ExecConfig()
         self.assertEqual(0, trashy_rm.run(app_config, exec_config))
 
     @mock.patch.dict(os.environ, {'HOME': '/tmp/trashy/my$PWD',
