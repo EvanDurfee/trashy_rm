@@ -1,8 +1,55 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""tashy_rm, the safe-ish rm wrapper
-
 """
+Usage: trashy_rm [OPTION].. [FILE]...
+
+Interactive file remover for safe deletion and recycling
+
+Options:
+  -f, --force      Ignore nonexistent files and arguments, never prompt
+  -r, --recursive  Remove directories and their contents recursively
+  -d, --dir        Remove empty directories
+  -c, --recycle    Move the files to the trash / recycle bin
+      --direct     Standard rm files even if they're in the trash path
+  -s, --shred      Shred the files for secure deletion
+  -i               Prompt before removal for every file
+  -I               Prompt once before removing more than CUTOFF files, or when
+                     removing recursively. This is the default mode.
+      --interactive[=WHEN] Prompt according to WHEN: never, once (-I), or
+                             always (-i). Without WHEN, prompt always.
+  -v, --verbose    Explain what is being done
+  -h, --help       Display this text and exit
+      --version    Output version information and exit
+  --               Treats all following arguments as file names
+  -                Read file names from stdin
+
+Trashy rm defaults to '--interactive=once' (-I) mode, prompting the user if
+more than CUTOFF (defaults to 3) files and directories will be removed. An
+attempt is made to provide a useful overview of what files and directories will
+be removed before prompting y/n.
+
+Trashy rm also supports different removal modes.
+  Recycle mode (-c or --recycle) will move the given files to the best matching
+    trash / recycle bin for the device and OS.
+  Normal mode will unlink the files via standard rm. If a file resides in the
+    configured trash path, the file will instead be moved to the trash.
+  Direct mode (--direct) will unlink files via standard rm, ignoring the trash
+    path.
+  Shred mode (-s, --shred) will use shred / gshred to more securely delete a
+    file, bypassing the other removal modes. Shred mode will attempt to
+    repeatedly overwrite the file bytes for more secure deletion than rm, which
+    leaves the data intact but unlinked. Shred's effectiveness is limited by
+    filesystem type (e.g. journaling or Copy On Write) and device behavior; see
+    GNU shred's documentation for more information
+
+See man trashy_rm(1) for configuration information
+"""
+
+# TODO: Might be useful in a man page / README later
+# General purpose file remover wrapping standard rm, mv, and shred commands to
+# handle unlinking, recycling, and safe deletion of files and directories. Also
+# provides different interactive modes to get a preview of what files will be
+# affected.
 
 import configparser
 import os
@@ -49,6 +96,8 @@ class ExecConfig:
     help = False
     # Return the current trash dir and exit
     get_trash = False
+    # get version and exit
+    version = False
     # Never prompt, ignore non-existent files and arguments
     force = False
     # Prompt mode (never, once / normal, or always
@@ -97,7 +146,6 @@ def parse_opts(opts: List[str]) -> ExecConfig:
     while True:
         try:
             opt = next(it)
-            print('Begin: ' + opt)
             if opt == '--':
                 # Everything after this is a file
                 conf.targets += it
@@ -176,10 +224,10 @@ class LinuxSystemInfo:
     @classmethod
     def get_shredder(cls) -> str:
         # File shredding
-        if call('hash gshred 2>/dev/null', shell=True) == 0:
-            shredder = 'gshred'
-        elif call('hash shred 2>/dev/null', shell=True) == 0:
+        if call('hash shred 2>/dev/null', shell=True) == 0:
             shredder = 'shred'
+        elif call('hash gshred 2>/dev/null', shell=True) == 0:
+            shredder = 'gshred'
         else:
             shredder = None
         return shredder
@@ -202,9 +250,13 @@ def get_system_info():
 
 
 def run(sys_info, conf: AppConfig, opts: ExecConfig,
-        in_stream=sys.stdin, out_stream=sys.stdout, err_stream=sys.stderr) -> int:
+        inp=sys.stdin, out=sys.stdout, err=sys.stderr) -> int:
     """Run trashy rm with the given configurations"""
-    return 0
+    if opts.help:
+        out.write(__doc__)
+        return 0
+    else:
+        raise NotImplementedError()
 
 
 def main() -> int:

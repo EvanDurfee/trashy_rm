@@ -6,6 +6,7 @@ import unittest
 import trashy_rm
 from unittest import mock
 
+
 class TestOptsParser(unittest.TestCase):
     def assertOptsEqual(self, expected: trashy_rm.ExecConfig, actual: trashy_rm.ExecConfig):
         self.assertEqual(expected.force, actual.force)
@@ -82,45 +83,36 @@ class TestOptsParser(unittest.TestCase):
         self.assertRaises(trashy_rm.OptParseError, lambda: trashy_rm.parse_opts(opts[::-1]))
 
 
-class TestHarness(unittest.TestCase):
-    def test_harness(self):
-        sys_info = trashy_rm.get_system_info()
-        app_config = trashy_rm.AppConfig()
-        exec_config = trashy_rm.ExecConfig()
-        proc_in = io.StringIO()
-        proc_out = io.StringIO()
-        proc_err = io.StringIO()
-        self.assertEqual(0, trashy_rm.run(sys_info, app_config, exec_config, proc_in, proc_out, proc_err))
-
+class TestConfig(unittest.TestCase):
     @mock.patch.dict(os.environ, {'HOME': '/tmp/trashy/my$PWD',
                                   'MY_DIR': '/tmp/trashy/test',
                                   'SPACES_DIR': '/tmp/trashy/spa ces'})
     def test_load_config(self):
         # One file with everything
         file1_str = """
-                    [prompt]
-                    cutoff = 9
-                    [trash_path]
-                    home = /dev/null
-                    unset = $UNSET/tmp/stuff
-                    """
+           [prompt]
+           cutoff = 9
+           [trash_path]
+           home = /dev/null
+           unset = $UNSET/tmp/stuff
+           """
         # One file overriding some sections
         file2_str = """
-                    [trash_path]
-                    home = ~
-                    lovelydir = $MY_DIR/directory
-                    spacesdir = ${SPACES_DIR}-here/dir
-                    """
+           [trash_path]
+           home = ~
+           lovelydir = $MY_DIR/directory
+           spacesdir = ${SPACES_DIR}-here/dir
+           """
         # One file overriding others
         file3_str = """
-                    [prompt]
-                    cutoff = 5
-                    """
+           [prompt]
+           cutoff = 5
+           """
         # And one empty file
 
-        with tempfile.NamedTemporaryFile('w+') as config1,\
-                tempfile.NamedTemporaryFile('w+') as config2,\
-                tempfile.NamedTemporaryFile('w+') as config3,\
+        with tempfile.NamedTemporaryFile('w+') as config1, \
+                tempfile.NamedTemporaryFile('w+') as config2, \
+                tempfile.NamedTemporaryFile('w+') as config3, \
                 tempfile.NamedTemporaryFile('w+') as config4:
             config1.write(textwrap.dedent(file1_str))
             config2.write(textwrap.dedent(file2_str))
@@ -137,6 +129,23 @@ class TestHarness(unittest.TestCase):
                              '/tmp/trashy/spa ces-here/dir',
                              '$UNSET/tmp/stuff']
             self.assertCountEqual(expected_dirs, config.trashy_dirs)
+
+
+class TestHarness(unittest.TestCase):
+    def test_help(self):
+        sys_info = trashy_rm.get_system_info()
+        app_config = trashy_rm.AppConfig()
+        exec_config = trashy_rm.ExecConfig()
+        exec_config.force = True
+        exec_config.shred = True
+        exec_config.verbose = True
+        exec_config.help = True
+        inp = io.StringIO()
+        out = io.StringIO()
+        err = io.StringIO()
+        self.assertEqual(0, trashy_rm.run(sys_info, app_config, exec_config, inp, out, err))
+        self.assertEqual(trashy_rm.__doc__, out.getvalue())
+        self.assertEqual('', err.getvalue())
 
 
 if __name__ == '__main__':
